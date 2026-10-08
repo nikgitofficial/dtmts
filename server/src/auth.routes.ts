@@ -23,7 +23,7 @@ const registerSchema = z.object({
 });
 const loginSchema = z.object({ email: z.string().trim().toLowerCase().email(), password: z.string().min(1).max(200) });
 
-async function issueSession(res: Response, userId: string, familyId = randomUUID()) {
+async function issueSession(res: Response, userId: string, familyId: string = randomUUID()) {
   const refresh = signRefresh(userId, familyId);
   await pool.query(
     "INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at) VALUES ($1,$2,$3,$4)",

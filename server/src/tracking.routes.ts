@@ -59,6 +59,7 @@ driverTracking.post("/location", requireDriver, driverLimiter, async (req, res) 
 
   // Latest position only moves forward in time
   const last = pts[pts.length - 1];
+if (!last) return res.json({ ok: true, accepted: 0 });
   await pool.query(
     `INSERT INTO driver_locations (driver_id, lat, lng, accuracy, speed, heading, recorded_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7)
