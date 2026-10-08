@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "Secure Auth", description: "Sign in securely" };
+export const metadata: Metadata = {
+  title: {
+    default: "DTMTS",
+    template: "%s | DTMTS",
+  },
+  description: "Delivery truck monitoring and trucking system",
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
