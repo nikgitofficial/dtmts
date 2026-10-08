@@ -1,7 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, Alert, Animated, Easing, KeyboardAvoidingView, Linking, Platform, Pressable,
+  ActivityIndicator, Alert, Animated, Easing, Image, KeyboardAvoidingView, Linking, Platform, Pressable,
   ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -10,6 +10,29 @@ import { EMPTY_META, getMeta, isSharing, pendingCount, startSharing, stopSharing
 
 const BRAND = "#2563eb";
 const GREEN = "#16a34a";
+
+// Put your logo at ./assets/logo.png (same folder level as this file)
+const LOGO = require("./assets/logo.png");
+const COMPANY = "Jakkar Marketing Corporation";
+const COMPANY_SHORT = "Jakkar Marketing";
+
+function Brand({ variant }: { variant: "large" | "compact" }) {
+  if (variant === "compact") {
+    return (
+      <View style={s.brandRow}>
+        <Image source={LOGO} style={s.logoSmall} resizeMode="contain" accessibilityLabel="Jakkar logo" />
+        <Text style={s.brandNameSmall} numberOfLines={1}>{COMPANY_SHORT}</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={s.brandCol}>
+      <Image source={LOGO} style={s.logoLarge} resizeMode="contain" accessibilityLabel="Jakkar logo" />
+      <Text style={s.brandNameLarge}>{COMPANY}</Text>
+      <Text style={s.brandTag}>Delivery truck monitoring and trucking system</Text>
+    </View>
+  );
+}
 
 export default function App() {
   const [driver, setDriver] = useState<Driver | null>(null);
@@ -72,6 +95,7 @@ function Login({ onSuccess }: { onSuccess: (d: Driver) => void }) {
 
   return (
     <KeyboardAvoidingView style={s.center} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <Brand variant="large" />
       <View style={s.card}>
         <Text style={s.title}>Driver sign in</Text>
         <Text style={s.sub}>Use your email or phone number and your 6-digit PIN.</Text>
@@ -180,60 +204,100 @@ function Home({ driver, onSignOut }: { driver: Driver; onSignOut: () => void }) 
   ];
 
   return (
-    <ScrollView contentContainerStyle={s.home}>
-      <Text style={s.title}>Hi, {driver.name}</Text>
-
-      <View style={[s.card, { marginTop: 20 }]}>
-        <View style={s.statusRow}>
-          {sharing ? <PulseDot color={GREEN} /> : <View style={[s.idleDot]} />}
-          <Text style={s.statusText}>{sharing ? "Sharing live location" : "Location sharing is off"}</Text>
-        </View>
-        <Text style={s.sub}>
-          {sharing
-            ? "Your dispatcher can see your truck. Sharing continues with the screen off."
-            : "Start sharing when you begin your trip. Stop when you're done."}
-        </Text>
-
-        <Pressable
-          style={[s.shareBtn, { backgroundColor: sharing ? "#dc2626" : GREEN }, busy && { opacity: 0.6 }]}
-          onPress={toggle} disabled={busy} accessibilityRole="button"
-        >
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>{sharing ? "Stop sharing" : "Start sharing location"}</Text>}
+    <View style={s.homeWrap}>
+      {/* fixed header: nothing can overlap it */}
+      <View style={s.header}>
+        <Brand variant="compact" />
+        <Pressable onPress={onSignOut} style={s.signOutBtn} accessibilityRole="button" hitSlop={8}>
+          <Text style={s.signOutText}>Sign out</Text>
         </Pressable>
-
-        {!!error && <Text style={s.error} accessibilityRole="alert">{error}</Text>}
-
-        {sharing && (
-          <View style={{ marginTop: 16 }}>
-            <View style={s.row}><Text style={s.rowKey}>Last sent</Text><Text style={s.rowVal}>{ago(meta.lastSentAt, now)}</Text></View>
-            <View style={s.row}><Text style={s.rowKey}>GPS accuracy</Text><Text style={s.rowVal}>{meta.last?.accuracy != null ? `±${Math.round(meta.last.accuracy)} m` : "Locating…"}</Text></View>
-            <View style={s.row}><Text style={s.rowKey}>Speed</Text><Text style={s.rowVal}>{meta.last?.speed != null ? `${Math.round(meta.last.speed * 3.6)} km/h` : "—"}</Text></View>
-            {pending > 0 && <View style={s.row}><Text style={s.rowKey}>Waiting to send</Text><Text style={s.rowVal}>{pending} updates</Text></View>}
-            {!!meta.error && <Text style={[s.sub, { color: "#b45309", marginTop: 10 }]}>{meta.error}</Text>}
-          </View>
-        )}
       </View>
 
-      <View style={[s.card, { marginTop: 16 }]}>
-        {rows.map(([k, v]) => (
-          <View key={k} style={s.row}>
-            <Text style={s.rowKey}>{k}</Text>
-            <Text style={s.rowVal}>{v}</Text>
-          </View>
-        ))}
-      </View>
+      <ScrollView contentContainerStyle={s.home} showsVerticalScrollIndicator={false}>
+        <Text style={s.welcome}>Welcome back</Text>
+        <Text style={s.title}>{driver.name}</Text>
 
-      <Pressable style={s.outline} onPress={onSignOut}>
-        <Text style={s.outlineText}>Sign out</Text>
-      </Pressable>
-    </ScrollView>
+        <View style={[s.card, { marginTop: 16 }]}>
+          <View style={s.statusRow}>
+            {sharing ? <PulseDot color={GREEN} /> : <View style={s.idleDot} />}
+            <Text style={s.statusText}>{sharing ? "Sharing live location" : "Location sharing is off"}</Text>
+          </View>
+          <Text style={s.statusSub}>
+            {sharing
+              ? "Your dispatcher can see your truck. Sharing continues with the screen off."
+              : "Start sharing when you begin your trip. Stop when you're done."}
+          </Text>
+
+          <Pressable
+            style={[s.shareBtn, { backgroundColor: sharing ? "#dc2626" : GREEN }, busy && { opacity: 0.6 }]}
+            onPress={toggle} disabled={busy} accessibilityRole="button"
+          >
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>{sharing ? "Stop sharing" : "Start sharing location"}</Text>}
+          </Pressable>
+
+          {!!error && <Text style={s.error} accessibilityRole="alert">{error}</Text>}
+
+          {sharing && (
+            <>
+              <View style={s.stats}>
+                <View style={s.stat}>
+                  <Text style={s.statVal}>{ago(meta.lastSentAt, now)}</Text>
+                  <Text style={s.statKey}>Last sent</Text>
+                </View>
+                <View style={s.statDivider} />
+                <View style={s.stat}>
+                  <Text style={s.statVal}>{meta.last?.accuracy != null ? `±${Math.round(meta.last.accuracy)} m` : "Locating…"}</Text>
+                  <Text style={s.statKey}>GPS accuracy</Text>
+                </View>
+                <View style={s.statDivider} />
+                <View style={s.stat}>
+                  <Text style={s.statVal}>{meta.last?.speed != null ? `${Math.round(meta.last.speed * 3.6)} km/h` : "—"}</Text>
+                  <Text style={s.statKey}>Speed</Text>
+                </View>
+              </View>
+              {pending > 0 && <Text style={s.pendingText}>{pending} updates waiting to send</Text>}
+              {!!meta.error && <Text style={s.warnText}>{meta.error}</Text>}
+            </>
+          )}
+        </View>
+
+        <Text style={s.sectionLabel}>Trip details</Text>
+        <View style={[s.card, s.detailsCard]}>
+          {rows.map(([k, v], i) => (
+            <View key={k} style={[s.row, i === rows.length - 1 && { borderBottomWidth: 0 }]}>
+              <Text style={s.rowKey}>{k}</Text>
+              <Text style={s.rowVal}>{v}</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#f1f5f9" },
   center: { flex: 1, justifyContent: "center", padding: 20 },
-  home: { padding: 20, paddingTop: 32, paddingBottom: 40 },
+  homeWrap: { flex: 1 },
+  header: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12,
+    paddingHorizontal: 20, height: 64, backgroundColor: "#fff",
+    borderBottomWidth: 1, borderBottomColor: "#e2e8f0",
+  },
+  signOutBtn: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: "#fff" },
+  signOutText: { fontSize: 13, fontWeight: "500", color: "#0f172a" },
+  home: { padding: 20, paddingBottom: 32 },
+  welcome: { fontSize: 14, color: "#64748b" },
+  statusSub: { marginTop: 6, marginBottom: 16, color: "#64748b", fontSize: 14, lineHeight: 20 },
+  stats: { flexDirection: "row", marginTop: 18, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#e2e8f0" },
+  stat: { flex: 1, alignItems: "center" },
+  statVal: { fontSize: 15, fontWeight: "600", color: "#0f172a" },
+  statKey: { marginTop: 2, fontSize: 12, color: "#64748b" },
+  statDivider: { width: StyleSheet.hairlineWidth, backgroundColor: "#e2e8f0" },
+  pendingText: { marginTop: 14, textAlign: "center", fontSize: 13, color: "#b45309" },
+  warnText: { marginTop: 10, textAlign: "center", fontSize: 13, color: "#b45309" },
+  sectionLabel: { marginTop: 24, marginBottom: 8, marginLeft: 4, fontSize: 12, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase", color: "#64748b" },
+  detailsCard: { paddingVertical: 6 },
   card: { backgroundColor: "#fff", borderRadius: 16, padding: 20, borderWidth: 1, borderColor: "#e2e8f0" },
   title: { fontSize: 24, fontWeight: "600", color: "#0f172a" },
   sub: { marginTop: 4, marginBottom: 12, color: "#64748b", fontSize: 14 },
@@ -246,10 +310,19 @@ const s = StyleSheet.create({
   statusRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   statusText: { fontSize: 17, fontWeight: "600", color: "#0f172a" },
   idleDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#94a3b8", marginHorizontal: 3 },
-  shareBtn: { marginTop: 4, borderRadius: 12, paddingVertical: 18, alignItems: "center" },
-  row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#e2e8f0" },
+  shareBtn: { borderRadius: 12, paddingVertical: 16, alignItems: "center" },
+  row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#e2e8f0" },
   rowKey: { color: "#64748b" },
   rowVal: { color: "#0f172a", fontWeight: "500", flexShrink: 1, textAlign: "right", marginLeft: 16 },
   outline: { marginTop: 24, borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, paddingVertical: 12, alignItems: "center", backgroundColor: "#fff" },
   outlineText: { fontWeight: "500", color: "#0f172a" },
+
+  // brand
+  brandCol: { alignItems: "center", marginBottom: 24 },
+  logoLarge: { width: 224, height: 56 },
+  brandNameLarge: { marginTop: 12, fontSize: 20, fontWeight: "600", color: "#0f172a", textAlign: "center" },
+  brandTag: { marginTop: 4, fontSize: 13, color: "#64748b", textAlign: "center" },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1, marginRight: 8 },
+  logoSmall: { width: 112, height: 28 },
+  brandNameSmall: { flex: 1, fontSize: 14, fontWeight: "600", color: "#0f172a" },
 });
