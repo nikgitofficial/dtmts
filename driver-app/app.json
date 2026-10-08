@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "driver-app",
+    "name": "Jakkar Driver",
     "slug": "driver-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,12 +17,10 @@
     },
     "android": {
       "package": "com.nikgitofficial.driverapp",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
