@@ -1,7 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Application from "expo-application"; // NEW
+import * as Device from "expo-device"; // NEW
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
-import { ApiError, pushLocations, startTracking, stopTracking, tokenStore, type LocationPoint } from "./api";
+import { ApiError, pushLocations, startTracking, stopTracking, tokenStore, type DeviceInfo, type LocationPoint } from "./api"; // NEW: DeviceInfo
 
 export const TASK_NAME = "truck-location-updates";
 const QUEUE_KEY = "loc:queue";
@@ -19,6 +21,12 @@ export type Meta = {
 export const EMPTY_META: Meta = { lastSentAt: null, last: null, error: null };
 
 const round = (n: number, d: number) => Math.round(n * 10 ** d) / 10 ** d;
+
+// NEW: collects device details for the session log
+const deviceInfo = (): DeviceInfo => ({
+  name: Device.deviceName, brand: Device.brand, model: Device.modelName,
+  osName: Device.osName, osVersion: Device.osVersion, appVersion: Application.nativeApplicationVersion,
+});
 
 // Serialise queue access: the background task and the UI share the same storage
 let chain: Promise<unknown> = Promise.resolve();
@@ -121,7 +129,7 @@ export async function startSharing(): Promise<StartResult> {
 
   const token = await tokenStore.get();
   if (!token) throw new ApiError("Please sign in again.", 401);
-  await startTracking(token);
+  await startTracking(token, deviceInfo()); // NEW: sends device info
 
   if (!(await isSharing())) {
     await Location.startLocationUpdatesAsync(TASK_NAME, {

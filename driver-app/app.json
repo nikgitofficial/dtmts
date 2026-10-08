@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.nikgitofficial.driverapp",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/android-icon-foreground.png"
