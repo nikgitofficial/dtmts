@@ -17,6 +17,12 @@ const NAV = [
     label: "Live tracking",
     icon: "M12 21s7-6.2 7-11.5a7 7 0 1 0-14 0C5 14.8 12 21 12 21ZM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
   },
+  // NEW
+  {
+    href: "/dashboard/logs",
+    label: "Session logs",
+    icon: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+  },
 ];
 
 export default function Sidebar({ user, onLogout }: { user: User; onLogout: () => void }) {
