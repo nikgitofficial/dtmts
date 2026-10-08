@@ -27,7 +27,7 @@ export class ApiError extends Error {
 
 async function call<T>(path: string, method = "GET", body?: unknown, token?: string | null): Promise<T> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 15_000);
+  const timer = setTimeout(() => ctrl.abort(), 60_000);
   let res: Response;
   try {
     res = await fetch(`${API_URL}/api/driver${path}`, {
