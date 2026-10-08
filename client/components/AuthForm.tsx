@@ -62,7 +62,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
       Jakkar Marketing Corporation
     </span>
     <span className="block text-sm text-slate-500">
-      Delivery truck monitoring and trucking system
+      Delivery truck monitoring and tracking system
     </span>
   </span>
 </Link>

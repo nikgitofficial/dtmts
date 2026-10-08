@@ -117,13 +117,24 @@ export default function Sidebar({ user, onLogout }: { user: User; onLogout: () =
   );
 }
 
-function Brand() {
+function Brand({ stacked = false }: { stacked?: boolean }) {
   return (
-    <Link href="/dashboard" className="flex items-center gap-2.5 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-      <Image src="/logo.png" alt="" width={160} height={40} priority className="h-8 w-auto" />
-      <span className="text-sm font-semibold leading-tight tracking-tight text-slate-900">Jakkar Marketing</span>
+    <Link
+      href="/dashboard"
+      className={`flex min-w-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+        stacked ? "flex-col items-start gap-2" : "items-center gap-2.5"
+      }`}
+    >
+      <Image src="/logo.png" alt="" width={160} height={40} priority className="h-8 w-auto shrink-0" />
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold leading-tight tracking-tight text-slate-900">
+          Jakkar Marketing DTMTS
+        </span>
+        <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
+          Delivery truck monitoring <br /> tracking system
+        </span>
+      </span>
     </Link>
-    
   );
 }
 
