@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #14213d;
+  --color-paper: #f7f8fb;
+  --color-brand: #3b5bdb;
+}
+body { background: var(--color-paper); color: var(--color-ink); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
