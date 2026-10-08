@@ -29,7 +29,7 @@ function Brand({ variant }: { variant: "large" | "compact" }) {
     <View style={s.brandCol}>
       <Image source={LOGO} style={s.logoLarge} resizeMode="contain" accessibilityLabel="Jakkar logo" />
       <Text style={s.brandNameLarge}>{COMPANY}</Text>
-      <Text style={s.brandTag}>Delivery truck monitoring and trucking system</Text>
+      <Text style={s.brandTag}>Delivery truck monitoring and tracking system</Text>
     </View>
   );
 }
