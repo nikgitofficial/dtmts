@@ -8,7 +8,7 @@ import { csrfGuard, globalLimiter } from "./middleware.js";
 import { pool } from "./db.js";
 import { drivers } from "./drivers.routes.js";
 import { driverAuth } from "./driverAuth.routes.js";
-import { tracking, driverTracking, startRetentionJob } from "./tracking.routes.js";
+import { tracking, driverTracking, startRetentionJob, startSessionSweeper } from "./tracking.routes.js"; // NEW: startSessionSweeper
 
 
 const app = express();
@@ -48,6 +48,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 const server = app.listen(env.PORT, () => console.log(`API on :${env.PORT}`));
 startRetentionJob(30); // purge breadcrumb history older than 30 days (runs now, then every 6h)
+startSessionSweeper(); // NEW: close sessions after 30 min of silence (runs now, then every 5 min)
 
 process.on("unhandledRejection", (reason) => console.error("unhandledRejection", reason));
 // State may be corrupt after an uncaught exception: log, then exit and let the process manager restart us

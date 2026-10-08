@@ -26,13 +26,54 @@ const point = z.object({
 // Keep batches small: the global JSON body limit is 10kb
 const batchSchema = z.object({ points: z.array(point).min(1).max(40) });
 
-driverTracking.post("/tracking/start", requireDriver, async (_req, res) => {
-  await pool.query("UPDATE drivers SET sharing_since=now() WHERE id=$1", [res.locals.driver.id]);
+// NEW: device info sent by the app when sharing starts
+const devStr = z.string().trim().max(80).nullish();
+const startSchema = z.object({
+  device: z.object({
+    name: devStr, brand: devStr, model: devStr, osName: devStr, osVersion: devStr, appVersion: devStr,
+  }).optional(),
+});
+
+// NEW: now also logs a session row (device, IP) and closes any session left open
+driverTracking.post("/tracking/start", requireDriver, async (req, res) => {
+  const dev: NonNullable<z.infer<typeof startSchema>["device"]> =
+    startSchema.safeParse(req.body ?? {}).data?.device ?? {};
+  const ip = (req.ip ?? "").replace(/^::ffff:/, "").slice(0, 45) || null;
+  const driverId = res.locals.driver.id as string;
+
+  const c = await pool.connect();
+  try {
+    await c.query("BEGIN");
+    await c.query(
+      "UPDATE tracking_sessions SET ended_at=now(), end_reason='replaced' WHERE driver_id=$1 AND ended_at IS NULL",
+      [driverId],
+    );
+    await c.query(
+      `INSERT INTO tracking_sessions
+         (driver_id, device_name, device_brand, device_model, os_name, os_version, app_version, ip_address)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [driverId, dev.name ?? null, dev.brand ?? null, dev.model ?? null, dev.osName ?? null,
+       dev.osVersion ?? null, dev.appVersion ?? null, ip],
+    );
+    await c.query("UPDATE drivers SET sharing_since=now() WHERE id=$1", [driverId]);
+    await c.query("COMMIT");
+  } catch (e) {
+    await c.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
   res.json({ ok: true });
 });
 
+// NEW: now also closes the open session
 driverTracking.post("/tracking/stop", requireDriver, async (_req, res) => {
-  await pool.query("UPDATE drivers SET sharing_since=NULL WHERE id=$1", [res.locals.driver.id]);
+  const id = res.locals.driver.id;
+  await pool.query(
+    "UPDATE tracking_sessions SET ended_at=now(), end_reason='driver' WHERE driver_id=$1 AND ended_at IS NULL",
+    [id],
+  );
+  await pool.query("UPDATE drivers SET sharing_since=NULL WHERE id=$1", [id]);
   res.json({ ok: true });
 });
 
@@ -120,6 +161,132 @@ tracking.get("/:id/history", async (req, res) => {
   );
   res.json({ points: rows });
 });
+
+/* ───────── NEW: Session logs ───────── */
+
+const sessionsSchema = z.object({
+  q: z.string().trim().max(80).optional(),
+  status: z.enum(["all", "live", "ended"]).default("all"),
+  days: z.coerce.number().int().min(0).max(365).default(7), // 0 = all time
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+function sessionFilter(userId: string, f: { q?: string; status: string; days: number }) {
+  const where = ["d.owner_id = $1"];
+  const params: unknown[] = [userId];
+  if (f.q) {
+    params.push(`%${f.q.replace(/[\\%_]/g, "\\$&")}%`);
+    const n = `$${params.length}`;
+    where.push(`(d.name ILIKE ${n} OR d.plate_number ILIKE ${n} OR d.phone ILIKE ${n} OR s.device_name ILIKE ${n}
+      OR s.device_brand ILIKE ${n} OR s.device_model ILIKE ${n} OR s.ip_address ILIKE ${n})`);
+  }
+  if (f.status === "live") where.push("s.ended_at IS NULL");
+  if (f.status === "ended") where.push("s.ended_at IS NOT NULL");
+  if (f.days > 0) {
+    params.push(f.days);
+    where.push(`s.started_at > now() - make_interval(days => $${params.length}::int)`);
+  }
+  return { where: where.join(" AND "), params };
+}
+
+// Per-session stats come from the breadcrumb points recorded during the session (kept 30 days)
+const SESSION_SQL = `
+  SELECT s.id, s.driver_id AS "driverId", d.name AS "driverName", d.phone, d.email,
+         d.plate_number AS "plateNumber", d.vehicle_type AS "vehicleType",
+         d.route_from AS "routeFrom", d.route_to AS "routeTo",
+         s.started_at AS "startedAt", s.ended_at AS "endedAt", s.end_reason AS "endReason",
+         s.device_name AS "deviceName", s.device_brand AS "deviceBrand", s.device_model AS "deviceModel",
+         s.os_name AS "osName", s.os_version AS "osVersion", s.app_version AS "appVersion",
+         s.ip_address AS "ipAddress",
+         extract(epoch FROM (COALESCE(s.ended_at, now()) - s.started_at))::float8 AS "durationSec",
+         st.points, st.distance_km AS "distanceKm", st.max_speed AS "maxSpeed",
+         l.recorded_at AS "lastSeenAt"
+    FROM tracking_sessions s
+    JOIN drivers d ON d.id = s.driver_id
+    LEFT JOIN driver_locations l ON l.driver_id = s.driver_id
+    LEFT JOIN LATERAL (
+      SELECT count(*)::int AS points,
+             max(speed)::float8 AS max_speed,
+             COALESCE(sum(CASE WHEN plat IS NULL THEN 0 ELSE
+               12742 * asin(least(1, sqrt(
+                 power(sin(radians(lat - plat) / 2), 2) +
+                 cos(radians(plat)) * cos(radians(lat)) * power(sin(radians(lng - plng) / 2), 2)
+               ))) END), 0)::float8 AS distance_km
+        FROM (
+          SELECT p.lat, p.lng, p.speed,
+                 lag(p.lat) OVER w AS plat, lag(p.lng) OVER w AS plng
+            FROM location_points p
+           WHERE p.driver_id = s.driver_id
+             AND p.recorded_at >= s.started_at
+             AND p.recorded_at <= COALESCE(s.ended_at, now())
+          WINDOW w AS (ORDER BY p.recorded_at)
+        ) x
+    ) st ON true`;
+
+tracking.get("/sessions", async (req, res) => {
+  const p = sessionsSchema.safeParse(req.query);
+  if (!p.success) return res.status(400).json({ error: "Invalid query" });
+  const { page, limit, ...f } = p.data;
+  const { where, params } = sessionFilter(res.locals.userId, f);
+  const [list, sum] = await Promise.all([
+    pool.query(
+      `${SESSION_SQL} WHERE ${where} ORDER BY s.started_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, (page - 1) * limit],
+    ),
+    pool.query(
+      `SELECT count(*)::int AS total,
+              (count(*) FILTER (WHERE s.ended_at IS NULL))::int AS live,
+              count(DISTINCT s.driver_id)::int AS drivers,
+              COALESCE(avg(extract(epoch FROM (s.ended_at - s.started_at))) FILTER (WHERE s.ended_at IS NOT NULL), 0)::float8 AS "avgSec"
+         FROM tracking_sessions s JOIN drivers d ON d.id = s.driver_id WHERE ${where}`,
+      params,
+    ),
+  ]);
+  res.json({ sessions: list.rows, total: sum.rows[0].total, summary: sum.rows[0] });
+});
+
+// CSV: guards against spreadsheet formula injection from device names
+const csvCell = (v: unknown) => {
+  let s = v == null ? "" : v instanceof Date ? v.toISOString() : String(v);
+  if (/^[=@\t\r]|^[+-](?!\d)/.test(s)) s = "'" + s;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+tracking.get("/sessions/export", async (req, res) => {
+  const p = sessionsSchema.safeParse(req.query);
+  if (!p.success) return res.status(400).json({ error: "Invalid query" });
+  const { where, params } = sessionFilter(res.locals.userId, p.data);
+  const { rows } = await pool.query(`${SESSION_SQL} WHERE ${where} ORDER BY s.started_at DESC LIMIT 2000`, params);
+  const head = ["Driver", "Plate", "Phone", "Email", "Device name", "Brand", "Model", "OS", "App version",
+    "IP address", "Started", "Ended", "End reason", "Duration (min)", "Distance (km)", "Max speed (km/h)", "GPS points"];
+  const lines = rows.map((r) => [
+    r.driverName, r.plateNumber, r.phone, r.email, r.deviceName, r.deviceBrand, r.deviceModel,
+    [r.osName, r.osVersion].filter(Boolean).join(" "), r.appVersion, r.ipAddress,
+    r.startedAt, r.endedAt, r.endedAt ? r.endReason : "live",
+    (r.durationSec / 60).toFixed(1), r.points ? r.distanceKm.toFixed(2) : "",
+    r.maxSpeed == null ? "" : Math.round(r.maxSpeed * 3.6), r.points,
+  ].map(csvCell).join(","));
+  res.set({
+    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": `attachment; filename="session-logs-${new Date().toISOString().slice(0, 10)}.csv"`,
+  });
+  res.send("\uFEFF" + [head.join(","), ...lines].join("\r\n"));
+});
+
+/* NEW: Close sessions whose driver went silent (phone died, app killed, no network) */
+export function startSessionSweeper() {
+  const run = () =>
+    pool.query(
+      `UPDATE tracking_sessions s
+          SET ended_at = GREATEST(s.started_at, COALESCE(l.recorded_at, s.started_at)), end_reason = 'timeout'
+         FROM drivers d LEFT JOIN driver_locations l ON l.driver_id = d.id
+        WHERE d.id = s.driver_id AND s.ended_at IS NULL
+          AND now() - GREATEST(s.started_at, COALESCE(l.recorded_at, s.started_at)) > interval '30 minutes'`,
+    ).catch((e) => console.error("sweeper", e));
+  run();
+  setInterval(run, 5 * 60_000).unref();
+}
 
 /* ───────────────────────── Retention ───────────────────────── */
 

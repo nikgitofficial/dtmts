@@ -81,3 +81,23 @@ CREATE TABLE IF NOT EXISTS location_points (
 );
 
 CREATE INDEX IF NOT EXISTS location_points_recorded_idx ON location_points(recorded_at);
+
+-- NEW: Session logs. One row per "Start sharing" -> "Stop sharing"
+CREATE TABLE IF NOT EXISTS tracking_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  driver_id uuid NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  ended_at timestamptz,
+  end_reason text CHECK (end_reason IN ('driver','replaced','timeout')),
+  device_name text,
+  device_brand text,
+  device_model text,
+  os_name text,
+  os_version text,
+  app_version text,
+  ip_address text
+);
+CREATE INDEX IF NOT EXISTS tracking_sessions_driver_idx ON tracking_sessions(driver_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS tracking_sessions_started_idx ON tracking_sessions(started_at DESC);
+-- a driver can have only one open session
+CREATE UNIQUE INDEX IF NOT EXISTS tracking_sessions_one_open ON tracking_sessions(driver_id) WHERE ended_at IS NULL;
