@@ -34,6 +34,16 @@ function Brand({ variant }: { variant: "large" | "compact" }) {
   );
 }
 
+function Footer() {
+  return (
+    <View style={s.footer}>
+      <Image source={LOGO} style={s.logoFooter} resizeMode="contain" accessibilityLabel="Jakkar logo" />
+      <Text style={s.footerText}>© {new Date().getFullYear()} {COMPANY_SHORT}. All rights reserved.</Text>
+      <Text style={s.footerSub}>Delivery truck monitoring and tracking system</Text>
+    </View>
+  );
+}
+
 export default function App() {
   const [driver, setDriver] = useState<Driver | null>(null);
   const [booting, setBooting] = useState(true);
@@ -199,7 +209,7 @@ function Home({ driver, onSignOut }: { driver: Driver; onSignOut: () => void }) 
   const rows: [string, string][] = [
     ["Route", `${driver.routeFrom} → ${driver.routeTo}`],
     ["Plate", driver.plateNumber],
-    ["Vehicle", driver.vehicleType ?? "—"],
+    ["Vehicle", [driver.vehicleBrand, driver.vehicleType].filter(Boolean).join(" ") || "—"],
     ["Capacity", `${driver.capacityKg.toLocaleString()} kg`],
   ];
 
@@ -271,6 +281,8 @@ function Home({ driver, onSignOut }: { driver: Driver; onSignOut: () => void }) 
           ))}
         </View>
       </ScrollView>
+
+      <Footer />
     </View>
   );
 }
@@ -325,4 +337,13 @@ const s = StyleSheet.create({
   brandRow: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1, marginRight: 8 },
   logoSmall: { width: 112, height: 28 },
   brandNameSmall: { flex: 1, fontSize: 14, fontWeight: "600", color: "#0f172a" },
+
+  // footer
+  footer: {
+    alignItems: "center", gap: 4, paddingVertical: 12, paddingHorizontal: 20,
+    backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#e2e8f0",
+  },
+  logoFooter: { width: 80, height: 20, marginBottom: 2 },
+  footerText: { fontSize: 12, color: "#64748b", textAlign: "center" },
+  footerSub: { fontSize: 11, color: "#94a3b8", textAlign: "center" },
 });

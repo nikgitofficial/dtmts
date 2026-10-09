@@ -6,7 +6,7 @@ const KEY = "driver_token";
 export type Driver = {
   id: string; name: string; email: string; phone: string;
   routeFrom: string; routeTo: string; plateNumber: string;
-  vehicleType: string | null; capacityKg: number; status: "active" | "inactive";
+    vehicleBrand: string | null; vehicleType: string | null; capacityKg: number; status: "active" | "inactive";
 };
 
 export type LocationPoint = {
