@@ -1,6 +1,6 @@
 export type Session = {
   id: string; driverId: string; driverName: string; phone: string; email: string;
-  plateNumber: string; vehicleType: string | null; routeFrom: string; routeTo: string;
+  plateNumber: string; vehicleBrand: string | null; vehicleType: string | null; routeFrom: string; routeTo: string;
   startedAt: string; endedAt: string | null; endReason: "driver" | "replaced" | "timeout" | null;
   deviceName: string | null; deviceBrand: string | null; deviceModel: string | null;
   osName: string | null; osVersion: string | null; appVersion: string | null; ipAddress: string | null;

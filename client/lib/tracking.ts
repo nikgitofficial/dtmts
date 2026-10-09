@@ -1,6 +1,9 @@
 export type LiveDriver = {
   id: string; name: string; phone: string; plateNumber: string; vehicleType: string | null;
+  vehicleBrand: string | null;
   routeFrom: string; routeTo: string; capacityKg: number; status: "active" | "inactive";
+  routeFromLat: number | null; routeFromLng: number | null;
+  routeToLat: number | null; routeToLng: number | null;
   sharing: boolean; sharingSince: string | null;
   lat: number | null; lng: number | null; accuracy: number | null;
   speed: number | null; heading: number | null; recordedAt: string | null; ageSec: number | null;

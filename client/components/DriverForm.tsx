@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { rest } from "@/lib/api";
-import type { Driver } from "@/lib/drivers";
+import { BRANDS, type Driver } from "@/lib/drivers";
 
 const input = "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/15";
 
@@ -20,6 +20,7 @@ export default function DriverForm({ driver }: { driver?: Driver }) {
     const body = {
       name: f.name, email: f.email, phone: f.phone,
       routeFrom: f.routeFrom, routeTo: f.routeTo, plateNumber: f.plateNumber,
+      vehicleBrand: f.vehicleBrand || null,
       vehicleType: f.vehicleType || null, capacityKg: Number(f.capacityKg), status: f.status,
     };
     try {
@@ -62,6 +63,10 @@ export default function DriverForm({ driver }: { driver?: Driver }) {
         </label>
         <label className="block space-y-1.5 text-sm font-medium">Route to
           <input name="routeTo" required placeholder="Cagayan de Oro" maxLength={80} defaultValue={driver?.routeTo} className={input} />
+        </label>
+                <label className="block space-y-1.5 text-sm font-medium">Truck brand (optional)
+          <input name="vehicleBrand" list="truck-brands" placeholder="Honda, Suzuki…" maxLength={40} defaultValue={driver?.vehicleBrand ?? ""} className={input} />
+          <datalist id="truck-brands">{BRANDS.map((b) => <option key={b} value={b} />)}</datalist>
         </label>
         <label className="block space-y-1.5 text-sm font-medium">Vehicle type (optional)
           <input name="vehicleType" placeholder="Closed van, L300…" maxLength={40} defaultValue={driver?.vehicleType ?? ""} className={input} />

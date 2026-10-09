@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { rest } from "@/lib/api";
+import { vehicleLabel } from "@/lib/drivers";
 import {
   POLL_MS, STATE_META, STATE_ORDER, ageOf, compass, formatAgo, kmh, stateOf,
   type LiveDriver, type TrackState, type TrailPoint,
@@ -283,6 +284,7 @@ export default function TrackingPage() {
   const [hours, setHours] = useState(6);
   const [trail, setTrail] = useState<TrailPoint[]>([]);
   const [fitSignal, setFitSignal] = useState(0);
+  const [routeFit, setRouteFit] = useState(0);
   const [full, setFull] = useState(false);
   const mapBox = useRef<HTMLElement>(null);
 
@@ -404,7 +406,7 @@ export default function TrackingPage() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="truncate font-semibold">{selected.d.name}</div>
-                  <div className="text-sm text-slate-500">{selected.d.plateNumber}{selected.d.vehicleType ? ` · ${selected.d.vehicleType}` : ""}</div>
+                  <div className="text-sm text-slate-500">{selected.d.plateNumber}{vehicleLabel(selected.d) ? ` · ${vehicleLabel(selected.d)}` : ""}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge state={selected.state} />
@@ -433,6 +435,11 @@ export default function TrackingPage() {
                   <option value={1}>Trail: 1 h</option><option value={6}>Trail: 6 h</option>
                   <option value={24}>Trail: 24 h</option><option value={48}>Trail: 48 h</option>
                 </select>
+                                {selected.d.routeFromLat != null && selected.d.routeToLat != null ? (
+                  <button onClick={() => setRouteFit((n) => n + 1)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand ring-1 ring-slate-300 hover:bg-white">Show route</button>
+                ) : (
+                  <span className="text-xs text-amber-700">Route not pinned on map</span>
+                )}
                 {selected.d.lat != null && (
                   <a href={`https://www.google.com/maps?q=${selected.d.lat},${selected.d.lng}`} target="_blank" rel="noreferrer"
                     className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand ring-1 ring-slate-300 hover:bg-white">Open in Maps</a>
@@ -476,7 +483,7 @@ export default function TrackingPage() {
         >
           <TrackingMap
             rows={visible.map(({ d, state }) => ({ d, state }))}
-            selectedId={selectedId} trail={trail} follow={follow} fitSignal={fitSignal} onSelect={select}
+            selectedId={selectedId} trail={trail} follow={follow} fitSignal={fitSignal} routeFit={routeFit} onSelect={select}
           />
 
           {/* In full screen the side panel is hidden, so the live status and driver dropdown live on the map */}
@@ -519,6 +526,11 @@ export default function TrackingPage() {
                     <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
                     Follow
                   </label>
+                                    {selected.d.routeFromLat != null && selected.d.routeToLat != null ? (
+                    <button onClick={() => setRouteFit((n) => n + 1)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand ring-1 ring-slate-300 hover:bg-slate-50">Show route</button>
+                  ) : (
+                    <span className="text-xs text-amber-700">Route not pinned on map</span>
+                  )}
                   <a href={`tel:${selected.d.phone}`} className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand ring-1 ring-slate-300 hover:bg-slate-50">Call</a>
                 </div>
               </div>

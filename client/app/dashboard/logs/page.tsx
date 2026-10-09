@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Modal from "@/components/Modal";
 import { btn, ICON, Icon } from "@/components/ui";
 import { rest } from "@/lib/api";
+import { vehicleLabel } from "@/lib/drivers";
 import {
   END_REASON_TEXT, SESSION_META, deviceTitle, durationOf, fmtDateTime, fmtDuration, fmtKm, osLabel,
   sessionState, type Session, type SessionsResponse, type SessionState,
@@ -197,7 +198,8 @@ export default function LogsPage() {
                 <tr key={s.id} onClick={() => setSelected(s)} className="cursor-pointer transition hover:bg-slate-50">
                   <td className="px-4 py-3">
                     <button type="button" className="block max-w-[14rem] truncate text-left font-medium text-slate-900 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">{s.driverName}</button>
-                    <div className="text-slate-500">{s.plateNumber}{s.vehicleType ? ` · ${s.vehicleType}` : ""}</div>
+                    <div className="text-slate-500">{s.plateNumber}{vehicleLabel(s) ? ` · ${vehicleLabel(s)}` : ""}</div>
+                    <div className="text-slate-500">{s.routeFrom} → {s.routeTo}</div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 font-medium text-slate-900">
@@ -276,6 +278,12 @@ function SessionDetails({ s, now, onClose }: { s: Session; now: number; onClose:
           ["Distance", fmtKm(s)],
           ["Top speed", s.maxSpeed != null && s.points > 0 ? `${Math.round(s.maxSpeed * 3.6)} km/h` : "—"],
           ["GPS points", s.points > 0 ? s.points.toLocaleString() : "—"],
+        ]} />
+        <Section title="Truck & route" items={[
+          ["Truck", vehicleLabel(s) || "—"],
+          ["Plate number", s.plateNumber],
+          ["Start", s.routeFrom],
+          ["Destination", s.routeTo],
         ]} />
         <Section title="Device" items={[
           ["Model", deviceTitle(s)],

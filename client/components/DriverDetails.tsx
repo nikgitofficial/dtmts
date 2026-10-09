@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { Driver } from "@/lib/drivers";
+import { hasRoutePins, vehicleLabel, type Driver } from "@/lib/drivers";
 import Modal from "./Modal";
 import { btn, ICON, Icon, StatusBadge } from "./ui";
 
@@ -26,8 +26,9 @@ export default function DriverDetails({
     ["Email", <a key="e" href={`mailto:${d.email}`} className="break-all text-brand hover:underline">{d.email}</a>],
     ["Phone", <a key="p" href={`tel:${d.phone}`} className="text-brand hover:underline">{d.phone}</a>],
     ["Route", `${d.routeFrom} → ${d.routeTo}`],
+    ["Map pins", hasRoutePins(d) ? "Start and destination pinned" : "Place not found, check the spelling"],
     ["Plate number", d.plateNumber],
-    ["Vehicle type", d.vehicleType || "—"],
+    ["Truck", vehicleLabel(d) || "—"],
     ["Capacity", `${d.capacityKg.toLocaleString()} kg`],
   ];
 

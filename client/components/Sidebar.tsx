@@ -4,26 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { User } from "@/lib/api";
-
-const NAV = [
-  { href: "/dashboard", label: "Overview", icon: "M3 11l9-7.5L21 11M5 9.5V20h5v-6h4v6h5V9.5" },
-  {
-    href: "/dashboard/drivers",
-    label: "Drivers",
-    icon: "M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM21 20v-1a4 4 0 0 0-3-3.9M16 4.1a3.5 3.5 0 0 1 0 6.8",
-  },
-  {
-    href: "/dashboard/tracking",
-    label: "Live tracking",
-    icon: "M12 21s7-6.2 7-11.5a7 7 0 1 0-14 0C5 14.8 12 21 12 21ZM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
-  },
-  // NEW
-  {
-    href: "/dashboard/logs",
-    label: "Session logs",
-    icon: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
-  },
-];
+import { NAV, isActive } from "./nav";
 
 export default function Sidebar({ user, onLogout }: { user: User; onLogout: () => void }) {
   const pathname = usePathname();
@@ -82,7 +63,7 @@ export default function Sidebar({ user, onLogout }: { user: User; onLogout: () =
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Main">
           {NAV.map(({ href, label, icon }) => {
-            const active = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+            const active = isActive(pathname, href);
             return (
               <Link
                 key={href}
@@ -114,7 +95,6 @@ export default function Sidebar({ user, onLogout }: { user: User; onLogout: () =
             className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-brand"
           >
             <Icon d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10" />
-            
             Sign out
           </button>
         </div>
@@ -143,7 +123,6 @@ function Brand({ stacked = false }: { stacked?: boolean }) {
     </Link>
   );
 }
-
 
 function Icon({ d }: { d: string }) {
   return (

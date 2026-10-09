@@ -2,21 +2,23 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { rest } from "@/lib/api";
-import type { Driver } from "@/lib/drivers";
+import { BRANDS, type Driver } from "@/lib/drivers";
 import Modal from "./Modal";
 import { btn, ErrorNote, Spinner } from "./ui";
 
 type Status = "active" | "inactive";
 type Form = {
   name: string; email: string; phone: string; routeFrom: string; routeTo: string;
-  plateNumber: string; vehicleType: string; capacityKg: string; status: Status;
+  plateNumber: string; vehicleBrand: string; vehicleType: string; capacityKg: string; status: Status;
 };
 type Key = keyof Form;
-type Canon = Omit<Form, "vehicleType" | "capacityKg"> & { vehicleType: string | null; capacityKg: number };
+type Canon = Omit<Form, "vehicleBrand" | "vehicleType" | "capacityKg"> &
+  { vehicleBrand: string | null; vehicleType: string | null; capacityKg: number };
 
 const LABELS: Record<Key, string> = {
   name: "Name", email: "Email", phone: "Phone", routeFrom: "Origin", routeTo: "Destination",
-  plateNumber: "Plate number", vehicleType: "Vehicle type", capacityKg: "Capacity", status: "Status",
+  plateNumber: "Plate number", vehicleBrand: "Truck brand", vehicleType: "Vehicle type",
+  capacityKg: "Capacity", status: "Status",
 };
 const KEYS = Object.keys(LABELS) as Key[];
 
@@ -33,7 +35,7 @@ function toForm(d?: Driver | null): Form {
   return {
     name: d?.name ?? "", email: d?.email ?? "", phone: d?.phone ?? "",
     routeFrom: d?.routeFrom ?? "", routeTo: d?.routeTo ?? "",
-    plateNumber: d?.plateNumber ?? "", vehicleType: d?.vehicleType ?? "",
+    plateNumber: d?.plateNumber ?? "", vehicleBrand: d?.vehicleBrand ?? "", vehicleType: d?.vehicleType ?? "",
     capacityKg: d ? String(d.capacityKg) : "", status: (d?.status as Status) ?? "active",
   };
 }
@@ -43,6 +45,7 @@ function canon(f: Form): Canon {
   return {
     name: f.name.trim(), email: f.email.trim().toLowerCase(), phone: normPhone(f.phone.trim()),
     routeFrom: f.routeFrom.trim(), routeTo: f.routeTo.trim(), plateNumber: normPlate(f.plateNumber),
+    vehicleBrand: f.vehicleBrand.trim() || null,
     vehicleType: f.vehicleType.trim() || null, capacityKg: Number(f.capacityKg), status: f.status,
   };
 }
@@ -127,14 +130,19 @@ export default function DriverModal({
             <Field label="Phone">
               <input type="tel" value={form.phone} onChange={set("phone")} required autoComplete="off" placeholder="0917 123 4567" className={input} />
             </Field>
-            <Field label="Origin">
+            <Field label="Origin (start)">
               <input value={form.routeFrom} onChange={set("routeFrom")} required maxLength={80} placeholder="Davao City" className={input} />
             </Field>
-            <Field label="Destination">
+            <Field label="Destination (end)">
               <input value={form.routeTo} onChange={set("routeTo")} required maxLength={80} placeholder="Cagayan de Oro" className={input} />
             </Field>
+            <p className="text-xs text-slate-500 sm:col-span-2">Origin and destination are pinned on the live map, so use a town or city name.</p>
             <Field label="Plate number">
               <input value={form.plateNumber} onChange={set("plateNumber")} required maxLength={10} placeholder="ABC 1234" className={`${input} uppercase`} />
+            </Field>
+            <Field label="Truck brand (optional)">
+              <input list="truck-brands" value={form.vehicleBrand} onChange={set("vehicleBrand")} maxLength={40} placeholder="Honda, Suzuki…" className={input} />
+              <datalist id="truck-brands">{BRANDS.map((b) => <option key={b} value={b} />)}</datalist>
             </Field>
             <Field label="Vehicle type (optional)">
               <input value={form.vehicleType} onChange={set("vehicleType")} maxLength={40} placeholder="10-wheeler" className={input} />

@@ -6,7 +6,8 @@ import DriverModal from "@/components/DriverModal";
 import { ConfirmModal } from "@/components/Modal";
 import { btn, ICON, Icon, StatusBadge } from "@/components/ui";
 import { rest } from "@/lib/api";
-import type { Driver } from "@/lib/drivers";
+import { vehicleLabel, type Driver } from "@/lib/drivers";
+
 
 const PAGE_SIZE = 20;
 
@@ -118,7 +119,7 @@ export default function DriversPage() {
         <input
           value={q}
           onChange={(e) => { setQ(e.target.value); setPage(1); }}
-          placeholder="Search name, plate, route…"
+          placeholder="Search name, plate, brand, route…"
           aria-label="Search drivers"
           className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/15"
         />
@@ -167,7 +168,7 @@ export default function DriversPage() {
                   <div className="text-slate-500">{d.email} · {d.phone}</div>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">{d.routeFrom} → {d.routeTo}</td>
-                <td className="whitespace-nowrap px-4 py-3">{d.plateNumber}{d.vehicleType && <div className="text-slate-500">{d.vehicleType}</div>}</td>
+                <td className="whitespace-nowrap px-4 py-3">{d.plateNumber}{vehicleLabel(d) && <div className="text-slate-500">{vehicleLabel(d)}</div>}</td>
                 <td className="whitespace-nowrap px-4 py-3">{d.capacityKg.toLocaleString()} kg</td>
                 <td className="px-4 py-3"><code className="rounded bg-slate-100 px-2 py-1 font-mono tracking-widest">{d.pinCode}</code></td>
                 <td className="px-4 py-3"><StatusBadge status={d.status} /></td>

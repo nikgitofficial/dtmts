@@ -3,6 +3,8 @@ import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
 import { api, type User } from "@/lib/api";
 import Sidebar from "./Sidebar";
+import Topbar from "./Topbar";
+import Footer from "./Footer";
 
 const UserContext = createContext<User | null>(null);
 
@@ -31,9 +33,14 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
   return (
     <UserContext.Provider value={user}>
-      <div className="min-h-dvh bg-slate-50 lg:pl-64">
+      <div className="min-h-dvh bg-slate-50">
         <Sidebar user={user} onLogout={logout} />
-        {children}
+
+        <div className="flex min-h-dvh flex-col lg:pl-64">
+          <Topbar />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </div>
       </div>
     </UserContext.Provider>
   );

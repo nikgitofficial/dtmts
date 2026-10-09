@@ -11,6 +11,7 @@ type Props = {
   trail: TrailPoint[];
   follow: boolean;
   fitSignal: number;
+  routeFit: number;
   onSelect: (id: string | null) => void;
 };
 
@@ -26,6 +27,8 @@ const CSS = `
 .tm-wrap{transition:transform 4.8s linear}
 .tm-nolag .tm-wrap{transition:none!important}
 @media (prefers-reduced-motion:reduce){.tm-wrap{transition:none}}
+.rp{width:28px;height:28px;border-radius:9999px;display:grid;place-items:center;color:#fff;font:700 12px/1 ui-sans-serif,system-ui,sans-serif;border:3px solid #fff;box-shadow:0 2px 8px rgba(15,23,42,.35)}
+.rp-a{background:#16a34a}.rp-b{background:#dc2626}
 `;
 
 const TRUCK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5"/><path d="M14 17h1"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`;
@@ -60,17 +63,21 @@ function fitAll(map: L.Map, rows: MapRow[], animate: boolean) {
   map.fitBounds(L.latLngBounds(pts), { padding: [70, 70], maxZoom: 15, animate });
 }
 
-export default function TrackingMap({ rows, selectedId, trail, follow, fitSignal, onSelect }: Props) {
+export default function TrackingMap({ rows, selectedId, trail, follow, fitSignal, routeFit, onSelect }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markers = useRef(new Map<string, L.Marker>());
   const trailLayer = useRef<L.LayerGroup | null>(null);
+  const routeLayer = useRef<L.LayerGroup | null>(null);
+  const roads = useRef(new Map<string, L.LatLngTuple[]>());
   const ring = useRef<L.Circle | null>(null);
   const fitted = useRef(false);
   const rowsRef = useRef(rows);
   const onSelectRef = useRef(onSelect);
+  const selRef = useRef(selectedId);
   rowsRef.current = rows;
   onSelectRef.current = onSelect;
+  selRef.current = selectedId;
 
   // Init
   useEffect(() => {
@@ -83,6 +90,7 @@ export default function TrackingMap({ rows, selectedId, trail, follow, fitSignal
     ?? '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
 }).addTo(map);
     trailLayer.current = L.layerGroup().addTo(map);
+    routeLayer.current = L.layerGroup().addTo(map);
     map.on("click", () => onSelectRef.current(null));
 
     let t: ReturnType<typeof setTimeout>;
@@ -95,7 +103,7 @@ export default function TrackingMap({ rows, selectedId, trail, follow, fitSignal
     const mk = markers.current;
     return () => {
       clearTimeout(t); ro.disconnect(); map.remove();
-      mapRef.current = null; trailLayer.current = null; ring.current = null; fitted.current = false; mk.clear();
+      mapRef.current = null; trailLayer.current = null; routeLayer.current = null; ring.current = null; fitted.current = false; mk.clear();
     };
   }, []);
 
@@ -164,10 +172,65 @@ export default function TrackingMap({ rows, selectedId, trail, follow, fitSignal
     L.circleMarker(pts[0], { radius: 5, color: "#fff", weight: 2, fillColor: "#0f172a", fillOpacity: 1, interactive: false }).addTo(g);
   }, [trail, selectedId]);
 
+  // Start (A) and destination (B) of the selected truck
+  const rFrom = sel?.d.routeFrom ?? "", rTo = sel?.d.routeTo ?? "";
+  const aLat = sel?.d.routeFromLat ?? null, aLng = sel?.d.routeFromLng ?? null;
+  const bLat = sel?.d.routeToLat ?? null, bLng = sel?.d.routeToLng ?? null;
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const g = routeLayer.current;
+    if (!g) return () => ctrl.abort();
+    g.clearLayers();
+    if (aLat == null || aLng == null || bLat == null || bLng == null) return () => ctrl.abort();
+
+    const a: L.LatLngTuple = [aLat, aLng], b: L.LatLngTuple = [bLat, bLng];
+    const pin = (p: L.LatLngTuple, cls: string, letter: string, prefix: string, name: string) => {
+      const tip = document.createElement("span"); // textContent, so place names can't inject HTML
+      tip.textContent = `${prefix}: ${name}`;
+      L.marker(p, {
+        icon: L.divIcon({ className: "", html: `<div class="rp ${cls}">${letter}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }),
+        keyboard: false, zIndexOffset: -200,
+      }).bindTooltip(tip, { direction: "top", offset: [0, -12] }).addTo(g);
+    };
+    pin(a, "rp-a", "A", "Start", rFrom);
+    pin(b, "rp-b", "B", "Destination", rTo);
+
+    const line = L.polyline([a, b], { color: "#7c3aed", weight: 4, opacity: 0.85, dashArray: "2 10", lineCap: "round", interactive: false }).addTo(g);
+    const show = (pts: L.LatLngTuple[]) => { line.setLatLngs(pts); line.setStyle({ dashArray: undefined }); };
+
+    const key = `${a}|${b}`;
+    const cached = roads.current.get(key);
+    if (cached) { show(cached); return () => ctrl.abort(); }
+
+    // Upgrade the straight line to the real road route when the router answers
+    fetch(`https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        const c = j?.routes?.[0]?.geometry?.coordinates as [number, number][] | undefined;
+        if (!c?.length) return;
+        const pts = c.map(([x, y]) => [y, x] as L.LatLngTuple);
+        roads.current.set(key, pts);
+        show(pts);
+      })
+      .catch(() => { /* keep the dashed straight line */ });
+    return () => ctrl.abort();
+  }, [aLat, aLng, bLat, bLng, rFrom, rTo]);
+
   // "Show all trucks" button
   useEffect(() => {
     if (fitSignal > 0 && mapRef.current) fitAll(mapRef.current, rowsRef.current, true);
   }, [fitSignal]);
+
+  // "Show route" button: fit start, destination and the truck
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || routeFit === 0) return;
+    const d = rowsRef.current.find((x) => x.d.id === selRef.current)?.d;
+    if (!d || d.routeFromLat == null || d.routeToLat == null) return;
+    const pts: L.LatLngTuple[] = [[d.routeFromLat, d.routeFromLng!], [d.routeToLat, d.routeToLng!]];
+    if (d.lat != null && d.lng != null) pts.push([d.lat, d.lng]);
+    map.fitBounds(L.latLngBounds(pts), { padding: [80, 80], maxZoom: 15 });
+  }, [routeFit]);
 
   return (
     <>
