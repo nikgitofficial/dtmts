@@ -101,3 +101,11 @@ CREATE INDEX IF NOT EXISTS tracking_sessions_driver_idx ON tracking_sessions(dri
 CREATE INDEX IF NOT EXISTS tracking_sessions_started_idx ON tracking_sessions(started_at DESC);
 -- a driver can have only one open session
 CREATE UNIQUE INDEX IF NOT EXISTS tracking_sessions_one_open ON tracking_sessions(driver_id) WHERE ended_at IS NULL;
+
+
+-- NEW: truck brand + route map pins (A = start, B = destination)
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS vehicle_brand text;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS route_from_lat double precision;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS route_from_lng double precision;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS route_to_lat double precision;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS route_to_lng double precision;

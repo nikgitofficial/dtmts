@@ -125,9 +125,12 @@ tracking.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next()
 
 tracking.get("/live", async (_req, res) => {
   const { rows } = await pool.query(
-    `SELECT d.id, d.name, d.phone, d.plate_number AS "plateNumber", d.vehicle_type AS "vehicleType",
-            d.route_from AS "routeFrom", d.route_to AS "routeTo", d.capacity_kg::float8 AS "capacityKg",
-            d.status,
+    `SELECT d.id, d.name, d.phone, d.plate_number AS "plateNumber", d.vehicle_brand AS "vehicleBrand", d.vehicle_type AS "vehicleType",
+         d.route_from AS "routeFrom", d.route_to AS "routeTo", d.capacity_kg::float8 AS "capacityKg",
+                          d.status,
+            d.vehicle_brand AS "vehicleBrand",
+            d.route_from_lat AS "routeFromLat", d.route_from_lng AS "routeFromLng",
+            d.route_to_lat AS "routeToLat", d.route_to_lng AS "routeToLng",
 (d.sharing_since IS NOT NULL AND d.status = 'active'
   AND now() - GREATEST(d.sharing_since, l.recorded_at) < interval '30 minutes') AS sharing,
             d.sharing_since AS "sharingSince",
@@ -193,7 +196,7 @@ function sessionFilter(userId: string, f: { q?: string; status: string; days: nu
 // Per-session stats come from the breadcrumb points recorded during the session (kept 30 days)
 const SESSION_SQL = `
   SELECT s.id, s.driver_id AS "driverId", d.name AS "driverName", d.phone, d.email,
-         d.plate_number AS "plateNumber", d.vehicle_type AS "vehicleType",
+        d.plate_number AS "plateNumber", d.vehicle_brand AS "vehicleBrand", d.vehicle_type AS "vehicleType",
          d.route_from AS "routeFrom", d.route_to AS "routeTo",
          s.started_at AS "startedAt", s.ended_at AS "endedAt", s.end_reason AS "endReason",
          s.device_name AS "deviceName", s.device_brand AS "deviceBrand", s.device_model AS "deviceModel",
@@ -258,10 +261,11 @@ tracking.get("/sessions/export", async (req, res) => {
   if (!p.success) return res.status(400).json({ error: "Invalid query" });
   const { where, params } = sessionFilter(res.locals.userId, p.data);
   const { rows } = await pool.query(`${SESSION_SQL} WHERE ${where} ORDER BY s.started_at DESC LIMIT 2000`, params);
-  const head = ["Driver", "Plate", "Phone", "Email", "Device name", "Brand", "Model", "OS", "App version",
+    const head = ["Driver", "Plate", "Truck brand", "Vehicle type", "Route", "Phone", "Email", "Device name", "Brand", "Model", "OS", "App version",
     "IP address", "Started", "Ended", "End reason", "Duration (min)", "Distance (km)", "Max speed (km/h)", "GPS points"];
   const lines = rows.map((r) => [
-    r.driverName, r.plateNumber, r.phone, r.email, r.deviceName, r.deviceBrand, r.deviceModel,
+    r.driverName, r.plateNumber, r.vehicleBrand, r.vehicleType, `${r.routeFrom} → ${r.routeTo}`,
+    r.phone, r.email, r.deviceName, r.deviceBrand, r.deviceModel,
     [r.osName, r.osVersion].filter(Boolean).join(" "), r.appVersion, r.ipAddress,
     r.startedAt, r.endedAt, r.endedAt ? r.endReason : "live",
     (r.durationSec / 60).toFixed(1), r.points ? r.distanceKm.toFixed(2) : "",

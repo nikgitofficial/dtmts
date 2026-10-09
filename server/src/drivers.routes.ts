@@ -2,19 +2,27 @@ import { Router, type Request } from "express";
 import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { pool } from "./db.js";
+import { geocode } from "./geocode.js";
 import { requireAuth } from "./middleware.js";
 
 export const drivers = Router();
 drivers.use(requireAuth);
 
 const COLS = `id, name, email, phone, route_from AS "routeFrom", route_to AS "routeTo",
-  pin_code AS "pinCode", plate_number AS "plateNumber", vehicle_type AS "vehicleType",
+  route_from_lat AS "routeFromLat", route_from_lng AS "routeFromLng",
+  route_to_lat AS "routeToLat", route_to_lng AS "routeToLng",
+  pin_code AS "pinCode", plate_number AS "plateNumber",
+  vehicle_brand AS "vehicleBrand", vehicle_type AS "vehicleType",
   capacity_kg::float8 AS "capacityKg", status, created_at AS "createdAt", updated_at AS "updatedAt"`;
 
 // Whitelist: request field -> column (keeps dynamic UPDATE safe)
 const FIELD_TO_COL = {
   name: "name", email: "email", phone: "phone", routeFrom: "route_from", routeTo: "route_to",
-  plateNumber: "plate_number", vehicleType: "vehicle_type", capacityKg: "capacity_kg", status: "status",
+  plateNumber: "plate_number", vehicleBrand: "vehicle_brand", vehicleType: "vehicle_type",
+  capacityKg: "capacity_kg", status: "status",
+  // set by the server only (not accepted from the client, updateSchema is strict)
+  routeFromLat: "route_from_lat", routeFromLng: "route_from_lng",
+  routeToLat: "route_to_lat", routeToLng: "route_to_lng",
 } as const;
 
 // PH mobile -> normalized +639XXXXXXXXX
@@ -36,6 +44,7 @@ const driverSchema = z.object({
   routeFrom: place("Origin"),
   routeTo: place("Destination"),
   plateNumber: plate,
+  vehicleBrand: z.string().trim().max(40).nullish(),
   vehicleType: z.string().trim().max(40).nullish(),
   capacityKg: z.number().positive("Capacity must be greater than 0").max(100_000),
   status: z.enum(["active", "inactive"]).default("active"),
@@ -68,7 +77,7 @@ drivers.get("/", async (req, res) => {
   const { rows } = await pool.query(
     `SELECT ${COLS}, count(*) OVER()::int AS total FROM drivers
      WHERE owner_id=$1 AND ($2::text IS NULL OR name ILIKE $2 OR email ILIKE $2
-       OR plate_number ILIKE $2 OR route_from ILIKE $2 OR route_to ILIKE $2)
+       OR plate_number ILIKE $2 OR vehicle_brand ILIKE $2 OR route_from ILIKE $2 OR route_to ILIKE $2)
      ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
     [uid(req), like, limit, (page - 1) * limit],
   );
@@ -90,12 +99,16 @@ drivers.post("/", async (req, res) => {
   const p = driverSchema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message ?? "Invalid input" });
   const d = p.data;
+  const [from, to] = await Promise.all([geocode(d.routeFrom), geocode(d.routeTo)]);
   for (let i = 0; i < 5; i++) {
     try {
       const { rows } = await pool.query(
-        `INSERT INTO drivers (owner_id,name,email,phone,route_from,route_to,pin_code,plate_number,vehicle_type,capacity_kg,status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING ${COLS}`,
-        [uid(req), d.name, d.email, d.phone, d.routeFrom, d.routeTo, genPin(), d.plateNumber, d.vehicleType ?? null, d.capacityKg, d.status],
+        `INSERT INTO drivers (owner_id,name,email,phone,route_from,route_to,pin_code,plate_number,
+           vehicle_brand,vehicle_type,capacity_kg,status,route_from_lat,route_from_lng,route_to_lat,route_to_lng)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING ${COLS}`,
+        [uid(req), d.name, d.email, d.phone, d.routeFrom, d.routeTo, genPin(), d.plateNumber,
+         d.vehicleBrand ?? null, d.vehicleType ?? null, d.capacityKg, d.status,
+         from?.lat ?? null, from?.lng ?? null, to?.lat ?? null, to?.lng ?? null],
       );
       return res.status(201).json({ driver: rows[0] });
     } catch (e: any) {
@@ -116,6 +129,16 @@ drivers.patch("/:id", async (req, res) => {
 
   const entries = Object.entries(p.data).filter(([, v]) => v !== undefined) as [keyof typeof FIELD_TO_COL, unknown][];
   if (!entries.length) return res.status(400).json({ error: "Nothing to update" });
+
+  // Re-pin the map whenever a route end changes (stale coordinates are cleared if lookup fails)
+  if (p.data.routeFrom !== undefined) {
+    const g = await geocode(p.data.routeFrom);
+    entries.push(["routeFromLat", g?.lat ?? null], ["routeFromLng", g?.lng ?? null]);
+  }
+  if (p.data.routeTo !== undefined) {
+    const g = await geocode(p.data.routeTo);
+    entries.push(["routeToLat", g?.lat ?? null], ["routeToLng", g?.lng ?? null]);
+  }
 
   const sets = entries.map(([k], i) => `${FIELD_TO_COL[k]}=$${i + 1}`);
   const values = entries.map(([, v]) => v);

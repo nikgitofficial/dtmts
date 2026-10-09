@@ -13,7 +13,7 @@ const TOKEN_TTL = 30 * 24 * 3600;
 const MAX_ATTEMPTS = 5;
 
 const PROFILE = `id, name, email, phone, route_from AS "routeFrom", route_to AS "routeTo",
-  plate_number AS "plateNumber", vehicle_type AS "vehicleType",
+  plate_number AS "plateNumber", vehicle_brand AS "vehicleBrand", vehicle_type AS "vehicleType",
   capacity_kg::float8 AS "capacityKg", status`;
 
 // Binds the token to the current PIN: regenerating the PIN invalidates old sessions.
