@@ -1,5 +1,5 @@
-import { pool } from "./db.js";
-import { geocode } from "./geocode.js";
+import { pool } from "../config/db.js";
+import { geocode } from "../services/geocode.service.js";
 
 const { rows } = await pool.query(
   "SELECT id, route_from, route_to FROM drivers WHERE route_from_lat IS NULL OR route_to_lat IS NULL",

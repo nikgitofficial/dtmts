@@ -1,12 +1,8 @@
-import { Router, type Request } from "express";
 import { randomInt } from "node:crypto";
+import type { Request, Response } from "express";
 import { z } from "zod";
-import { pool } from "./db.js";
-import { geocode } from "./geocode.js";
-import { requireAuth } from "./middleware.js";
-
-export const drivers = Router();
-drivers.use(requireAuth);
+import { pool } from "../config/db.js";
+import { geocode } from "../services/geocode.service.js";
 
 const COLS = `id, name, email, phone, route_from AS "routeFrom", route_to AS "routeTo",
   route_from_lat AS "routeFromLat", route_from_lng AS "routeFromLng",
@@ -66,10 +62,10 @@ function conflict(constraint?: string) {
   if (constraint === "drivers_owner_plate_unique") return "A driver with this plate number already exists";
   return "Duplicate driver";
 }
-const uid = (req: Request) => req.res!.locals.userId as string;
+const uid = (res: Response) => res.locals.userId as string;
 
 // LIST (search + pagination)
-drivers.get("/", async (req, res) => {
+export async function list(req: Request, res: Response) {
   const p = listSchema.safeParse(req.query);
   if (!p.success) return res.status(400).json({ error: "Invalid query" });
   const { q, page, limit } = p.data;
@@ -79,23 +75,23 @@ drivers.get("/", async (req, res) => {
      WHERE owner_id=$1 AND ($2::text IS NULL OR name ILIKE $2 OR email ILIKE $2
        OR plate_number ILIKE $2 OR vehicle_brand ILIKE $2 OR route_from ILIKE $2 OR route_to ILIKE $2)
      ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
-    [uid(req), like, limit, (page - 1) * limit],
+    [uid(res), like, limit, (page - 1) * limit],
   );
   const total = rows[0]?.total ?? 0;
   res.json({ drivers: rows.map(({ total: _t, ...d }) => d), total, page, limit });
-});
+}
 
 // READ
-drivers.get("/:id", async (req, res) => {
+export async function get(req: Request, res: Response) {
   const id = idSchema.safeParse(req.params.id);
   if (!id.success) return res.status(404).json({ error: "Not found" });
-  const { rows } = await pool.query(`SELECT ${COLS} FROM drivers WHERE id=$1 AND owner_id=$2`, [id.data, uid(req)]);
+  const { rows } = await pool.query(`SELECT ${COLS} FROM drivers WHERE id=$1 AND owner_id=$2`, [id.data, uid(res)]);
   if (!rows[0]) return res.status(404).json({ error: "Not found" });
   res.json({ driver: rows[0] });
-});
+}
 
 // CREATE (auto-generates a unique PIN, retrying on the rare collision)
-drivers.post("/", async (req, res) => {
+export async function create(req: Request, res: Response) {
   const p = driverSchema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message ?? "Invalid input" });
   const d = p.data;
@@ -106,7 +102,7 @@ drivers.post("/", async (req, res) => {
         `INSERT INTO drivers (owner_id,name,email,phone,route_from,route_to,pin_code,plate_number,
            vehicle_brand,vehicle_type,capacity_kg,status,route_from_lat,route_from_lng,route_to_lat,route_to_lng)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING ${COLS}`,
-        [uid(req), d.name, d.email, d.phone, d.routeFrom, d.routeTo, genPin(), d.plateNumber,
+        [uid(res), d.name, d.email, d.phone, d.routeFrom, d.routeTo, genPin(), d.plateNumber,
          d.vehicleBrand ?? null, d.vehicleType ?? null, d.capacityKg, d.status,
          from?.lat ?? null, from?.lng ?? null, to?.lat ?? null, to?.lng ?? null],
       );
@@ -118,10 +114,10 @@ drivers.post("/", async (req, res) => {
     }
   }
   res.status(503).json({ error: "Could not generate a unique PIN. Try again." });
-});
+}
 
 // UPDATE (partial)
-drivers.patch("/:id", async (req, res) => {
+export async function update(req: Request, res: Response) {
   const id = idSchema.safeParse(req.params.id);
   if (!id.success) return res.status(404).json({ error: "Not found" });
   const p = updateSchema.safeParse(req.body);
@@ -146,7 +142,7 @@ drivers.patch("/:id", async (req, res) => {
     const { rows } = await pool.query(
       `UPDATE drivers SET ${sets.join(", ")}, updated_at=now()
        WHERE id=$${values.length + 1} AND owner_id=$${values.length + 2} RETURNING ${COLS}`,
-      [...values, id.data, uid(req)],
+      [...values, id.data, uid(res)],
     );
     if (!rows[0]) return res.status(404).json({ error: "Not found" });
     res.json({ driver: rows[0] });
@@ -154,17 +150,17 @@ drivers.patch("/:id", async (req, res) => {
     if (e.code === "23505") return res.status(409).json({ error: conflict(e.constraint) });
     throw e;
   }
-});
+}
 
 // REGENERATE PIN
-drivers.post("/:id/regenerate-pin", async (req, res) => {
+export async function regeneratePin(req: Request, res: Response) {
   const id = idSchema.safeParse(req.params.id);
   if (!id.success) return res.status(404).json({ error: "Not found" });
   for (let i = 0; i < 5; i++) {
     try {
       const { rows } = await pool.query(
         `UPDATE drivers SET pin_code=$1, updated_at=now() WHERE id=$2 AND owner_id=$3 RETURNING ${COLS}`,
-        [genPin(), id.data, uid(req)],
+        [genPin(), id.data, uid(res)],
       );
       if (!rows[0]) return res.status(404).json({ error: "Not found" });
       return res.json({ driver: rows[0] });
@@ -173,13 +169,13 @@ drivers.post("/:id/regenerate-pin", async (req, res) => {
     }
   }
   res.status(503).json({ error: "Could not generate a unique PIN. Try again." });
-});
+}
 
 // DELETE
-drivers.delete("/:id", async (req, res) => {
+export async function remove(req: Request, res: Response) {
   const id = idSchema.safeParse(req.params.id);
   if (!id.success) return res.status(404).json({ error: "Not found" });
-  const { rowCount } = await pool.query("DELETE FROM drivers WHERE id=$1 AND owner_id=$2", [id.data, uid(req)]);
+  const { rowCount } = await pool.query("DELETE FROM drivers WHERE id=$1 AND owner_id=$2", [id.data, uid(res)]);
   if (!rowCount) return res.status(404).json({ error: "Not found" });
   res.json({ ok: true });
-});
+}

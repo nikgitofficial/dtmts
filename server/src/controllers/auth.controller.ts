@@ -1,15 +1,13 @@
-import { Router, type Request, type Response } from "express";
 import bcrypt from "bcrypt";
 import { randomUUID } from "node:crypto";
+import type { Request, Response } from "express";
 import { z } from "zod";
-import { pool } from "./db.js";
-import { authLimiter, requireAuth } from "./middleware.js";
+import { pool } from "../config/db.js";
 import {
   REFRESH_TTL_MS, clearAuthCookies, setAuthCookies, sha256,
   signAccess, signRefresh, verifyRefresh,
-} from "./tokens.js";
+} from "../services/token.service.js";
 
-export const auth = Router();
 const COST = 12;
 const MAX_ATTEMPTS = 5, LOCK_MS = 15 * 60_000;
 // Used to equalize timing when the email does not exist
@@ -32,7 +30,7 @@ async function issueSession(res: Response, userId: string, familyId: string = ra
   setAuthCookies(res, signAccess(userId), refresh);
 }
 
-auth.post("/register", authLimiter, async (req: Request, res: Response) => {
+export async function register(req: Request, res: Response) {
   const p = registerSchema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message ?? "Invalid input" });
   const { name, email, password } = p.data;
@@ -45,9 +43,9 @@ auth.post("/register", authLimiter, async (req: Request, res: Response) => {
     if (e.code === "23505") return res.status(409).json({ error: "Unable to create account with those details" });
     throw e;
   }
-});
+}
 
-auth.post("/login", authLimiter, async (req: Request, res: Response) => {
+export async function login(req: Request, res: Response) {
   const p = loginSchema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Invalid email or password" });
   const { email, password } = p.data;
@@ -69,10 +67,10 @@ auth.post("/login", authLimiter, async (req: Request, res: Response) => {
   await pool.query("UPDATE users SET failed_attempts=0, locked_until=NULL WHERE id=$1", [user.id]);
   await issueSession(res, user.id);
   res.json({ user: { id: user.id, email: user.email, name: user.name } });
-});
+}
 
 // Rotate refresh token; reuse of an old token revokes the entire family
-auth.post("/refresh", async (req: Request, res: Response) => {
+export async function refresh(req: Request, res: Response) {
   const token = req.cookies?.rt as string | undefined;
   if (!token) {
     clearAuthCookies(res); // drop a lingering `at` so the middleware can't loop /login <-> /dashboard
@@ -105,17 +103,17 @@ auth.post("/refresh", async (req: Request, res: Response) => {
     clearAuthCookies(res);
     res.status(401).json({ error: "Session expired" });
   }
-});
+}
 
-auth.post("/logout", async (req: Request, res: Response) => {
+export async function logout(req: Request, res: Response) {
   const token = req.cookies?.rt as string | undefined;
   if (token) await pool.query("UPDATE refresh_tokens SET revoked_at=now() WHERE token_hash=$1", [sha256(token)]);
   clearAuthCookies(res);
   res.json({ ok: true });
-});
+}
 
-auth.get("/me", requireAuth, async (_req, res) => {
+export async function me(_req: Request, res: Response) {
   const { rows } = await pool.query("SELECT id,email,name,created_at FROM users WHERE id=$1", [res.locals.userId]);
   if (!rows[0]) return res.status(401).json({ error: "Unauthorized" });
   res.json({ user: rows[0] });
-});
+}

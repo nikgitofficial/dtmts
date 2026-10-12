@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { createHash, randomUUID } from "node:crypto";
 import type { Response } from "express";
-import { env, isProd } from "./env.js";
+import { env, isProd } from "../config/env.js";
 
 const ISS = "auth-starter", AUD = "auth-starter-web";
 const ACCESS_TTL = 15 * 60, REFRESH_TTL = 7 * 24 * 3600;
