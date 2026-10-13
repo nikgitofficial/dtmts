@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { User } from "@/lib/api";
+import type { User } from "@/types/user";
 import { NAV, isActive } from "./nav";
 
 export default function Sidebar({ user, onLogout }: { user: User; onLogout: () => void }) {

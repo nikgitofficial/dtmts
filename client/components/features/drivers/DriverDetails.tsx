@@ -1,8 +1,10 @@
 "use client";
-import { useState } from "react";
-import { hasRoutePins, vehicleLabel, type Driver } from "@/lib/drivers";
-import Modal from "./Modal";
-import { btn, ICON, Icon, StatusBadge } from "./ui";
+import { btn, ICON, Icon, StatusBadge } from "@/components/ui";
+import Modal from "@/components/ui/Modal";
+import { hasRoutePins, vehicleLabel } from "@/lib/drivers";
+import { place, titleCase } from "@/schemas/driver";
+import type { Driver } from "@/types/driver";
+import PinCell from "./PinCell";
 
 export default function DriverDetails({
   driver: d, onClose, onEdit, onDelete,
@@ -12,20 +14,10 @@ export default function DriverDetails({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copyPin() {
-    try {
-      await navigator.clipboard.writeText(String(d.pinCode));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch { /* clipboard blocked: ignore */ }
-  }
-
   const items: [string, React.ReactNode][] = [
     ["Email", <a key="e" href={`mailto:${d.email}`} className="break-all text-brand hover:underline">{d.email}</a>],
     ["Phone", <a key="p" href={`tel:${d.phone}`} className="text-brand hover:underline">{d.phone}</a>],
-    ["Route", `${d.routeFrom} → ${d.routeTo}`],
+    ["Route", `${place(d.routeFrom)} → ${place(d.routeTo)}`],
     ["Map pins", hasRoutePins(d) ? "Start and destination pinned" : "Place not found, check the spelling"],
     ["Plate number", d.plateNumber],
     ["Truck", vehicleLabel(d) || "—"],
@@ -33,20 +25,12 @@ export default function DriverDetails({
   ];
 
   return (
-    <Modal title={d.name} description={d.plateNumber} onClose={onClose}>
+    <Modal title={titleCase(d.name)} description={d.plateNumber} onClose={onClose}>
       <div className="flex items-center justify-between gap-3">
         <StatusBadge status={d.status} />
         <div className="flex items-center gap-2 text-sm text-slate-500">
           Driver PIN
-          <code className="rounded-md bg-slate-100 px-2.5 py-1 font-mono tracking-widest text-slate-900">{d.pinCode}</code>
-          <button
-            type="button"
-            onClick={copyPin}
-            aria-label={copied ? "PIN copied" : "Copy PIN"}
-            className="grid size-8 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-brand"
-          >
-            <Icon d={copied ? ICON.check : ICON.copy} className={`size-4 ${copied ? "text-green-600" : ""}`} />
-          </button>
+          <PinCell pin={d.pinCode} copyable />
         </div>
       </div>
 

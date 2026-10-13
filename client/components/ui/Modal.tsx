@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useId, useRef } from "react";
-import { btn, ErrorNote, ICON, Icon, Spinner } from "./ui";
+import { btn, ErrorNote, ICON, Icon, Spinner } from ".";
 
 const SIZES = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl" } as const;
 
@@ -39,6 +39,7 @@ export default function Modal({ title, description, size = "md", busy = false, o
     <dialog
       ref={ref}
       aria-labelledby={titleId}
+      aria-busy={busy}
       onCancel={(e) => { e.preventDefault(); if (!busy) onClose(); }}
       onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }} // backdrop click
       className={`m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] ${SIZES[size]} overflow-y-auto rounded-2xl bg-white p-0 text-slate-900 shadow-2xl ring-1 ring-slate-200 backdrop:bg-slate-900/40`}
@@ -89,7 +90,7 @@ export function ConfirmModal({ title, message, confirmLabel, tone = "danger", bu
         <button type="button" data-autofocus onClick={onCancel} disabled={busy} className={btn.secondary}>Cancel</button>
         <button type="button" onClick={onConfirm} disabled={busy} className={danger ? btn.danger : btn.primary}>
           {busy && <Spinner />}
-          {confirmLabel}
+          {busy ? "Working…" : confirmLabel}
         </button>
       </div>
     </Modal>

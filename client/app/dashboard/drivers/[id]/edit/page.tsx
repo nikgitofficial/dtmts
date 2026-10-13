@@ -1,21 +1,28 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import DriverForm from "@/components/DriverForm";
-import { rest } from "@/lib/api";
-import type { Driver } from "@/lib/drivers";
+import DriverForm from "@/components/features/drivers/DriverForm";
+import { DriverFormPageSkeleton } from "@/components/features/drivers/skeletons";
+import { useApiError } from "@/hooks/useApiError";
+import { restParsed } from "@/lib/api";
+import { driverResponseSchema } from "@/schemas/driver";
+import type { Driver } from "@/types/driver";
 
 export default function EditDriver() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const handleError = useApiError();
   const [driver, setDriver] = useState<Driver | null>(null);
 
   useEffect(() => {
-    rest<{ driver: Driver }>(`/drivers/${id}`)
+    restParsed(`/drivers/${id}`, driverResponseSchema)
       .then((d) => setDriver(d.driver))
-      .catch((e) => router.replace(e.message === "Unauthorized" ? "/login" : "/dashboard/drivers"));
-  }, [id, router]);
+      .catch((e) => {
+        // 401 redirects to /login inside handleError; anything else goes back to the list
+        if (handleError(e) !== null) router.replace("/dashboard/drivers");
+      });
+  }, [id, router, handleError]);
 
-  if (!driver) return <main className="grid min-h-dvh place-items-center text-slate-500">Loading…</main>;
+  if (!driver) return <DriverFormPageSkeleton />;
   return <DriverForm driver={driver} />;
 }

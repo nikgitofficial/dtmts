@@ -3,7 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
+import { Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
+import { validate } from "@/lib/validation";
+import { loginSchema, registerSchema } from "@/schemas/auth";
 
 // Put your logo in /public and update these three values.
 // Tip: an SVG with a transparent background looks best here.
@@ -23,10 +26,12 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+    const values = Object.fromEntries(new FormData(e.currentTarget));
+    const v = validate(isLogin ? loginSchema : registerSchema, values);
+    if (!v.ok) { setError(Object.values(v.errors)[0] ?? "Check the form and try again."); return; }
     setBusy(true);
-    const f = new FormData(e.currentTarget);
     try {
-      await api(`/${mode}`, "POST", Object.fromEntries(f));
+      await api(`/${mode}`, "POST", values);
       router.replace("/dashboard");
       router.refresh();
     } catch (err) {
@@ -38,46 +43,24 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
   return (
     <main className="relative isolate grid min-h-dvh place-items-center overflow-hidden bg-slate-50 px-4 py-10">
       {/* soft brand glow behind the card */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-0 -z-10 h-72 w-[40rem] max-w-full -translate-x-1/2 -translate-y-1/3 rounded-full bg-brand/15 blur-3xl"
-      />
+      <div aria-hidden className="pointer-events-none absolute left-1/2 top-0 -z-10 h-72 w-[40rem] max-w-full -translate-x-1/2 -translate-y-1/3 rounded-full bg-brand/15 blur-3xl" />
 
       <div className="w-full max-w-sm">
-     <Link
-  href="/"
-  aria-label="Jakkar Marketing Corporation home"
-  className="mb-8 flex flex-col items-center gap-3 rounded-md text-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
->
-  <Image
-    src={LOGO.src}
-    alt=""
-    width={LOGO.width}
-    height={LOGO.height}
-    priority
-    className="h-14 w-auto"
-  />
-  <span className="space-y-1">
-    <span className="block text-xl font-semibold tracking-tight text-slate-900">
-      Jakkar Marketing Corporation
-    </span>
-    <span className="block text-sm text-slate-500">
-      Delivery truck monitoring and tracking system
-    </span>
-  </span>
-</Link>
-
-
-
-        <form
-          onSubmit={onSubmit}
-          aria-busy={busy}
-          className="space-y-5 rounded-2xl bg-white p-8 shadow-xl shadow-slate-900/5 ring-1 ring-slate-200"
+        <Link
+          href="/"
+          aria-label="Jakkar Marketing Corporation home"
+          className="mb-8 flex flex-col items-center gap-3 rounded-md text-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
         >
+          <Image src={LOGO.src} alt="" width={LOGO.width} height={LOGO.height} priority className="h-14 w-auto" />
+          <span className="space-y-1">
+            <span className="block text-xl font-semibold tracking-tight text-slate-900">Jakkar Marketing Corporation</span>
+            <span className="block text-sm text-slate-500">Delivery truck monitoring and tracking system</span>
+          </span>
+        </Link>
+
+        <form onSubmit={onSubmit} noValidate aria-busy={busy} className="space-y-5 rounded-2xl bg-white p-8 shadow-xl shadow-slate-900/5 ring-1 ring-slate-200">
           <header className="text-center">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-              {isLogin ? "Welcome back" : "Create your account"}
-            </h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{isLogin ? "Welcome back" : "Create your account"}</h1>
             <p className="mt-1.5 text-sm text-slate-500">
               {isLogin ? "Sign in to continue to your dashboard." : "Use at least 10 characters for your password."}
             </p>
@@ -87,30 +70,19 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
             {!isLogin && (
               <label className="block space-y-1.5 text-sm font-medium text-slate-700">
                 Name
-                <input name="name" required maxLength={80} autoComplete="name" placeholder="Jane Doe" className={field} />
+                <input name="name" maxLength={80} autoComplete="name" placeholder="Jane Doe" className={field} />
               </label>
             )}
-
             <label className="block space-y-1.5 text-sm font-medium text-slate-700">
               Email
-              <input
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="you@company.com"
-                className={field}
-              />
+              <input name="email" type="email" autoComplete="email" placeholder="you@company.com" className={field} />
             </label>
-
             <label className="block space-y-1.5 text-sm font-medium text-slate-700">
               Password
               <div className="relative">
                 <input
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  required
-                  minLength={isLogin ? 1 : 10}
                   autoComplete={isLogin ? "current-password" : "new-password"}
                   aria-describedby={error ? errorId : undefined}
                   className={`${field} pr-11`}
@@ -130,17 +102,9 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
 
           <div aria-live="polite">
             {error && (
-              <p
-                id={errorId}
-                role="alert"
-                className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700 ring-1 ring-inset ring-red-100"
-              >
+              <p id={errorId} role="alert" className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700 ring-1 ring-inset ring-red-100">
                 <svg viewBox="0 0 20 20" fill="currentColor" className="mt-0.5 size-4 shrink-0" aria-hidden>
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-4a.9.9 0 0 0-.9.98l.35 3.5a.55.55 0 0 0 1.1 0l.35-3.5A.9.9 0 0 0 10 6Zm0 7.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"
-                    clipRule="evenodd"
-                  />
+                  <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-4a.9.9 0 0 0-.9.98l.35 3.5a.55.55 0 0 0 1.1 0l.35-3.5A.9.9 0 0 0 10 6Zm0 7.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" clipRule="evenodd" />
                 </svg>
                 {error}
               </p>
@@ -164,15 +128,6 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
         </p>
       </div>
     </main>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg className="size-4 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity=".3" strokeWidth="3" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-    </svg>
   );
 }
 

@@ -23,6 +23,7 @@ export const ICON = {
   copy: "M9 9h10v11H9zM5 15H4V4h11v1",
   check: "M5 12l5 5 9-10",
   alert: "M12 8v5M12 16.5v.01M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
+  info: "M12 11v5M12 8v.01M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
 };
 
 export function Icon({ d, className = "size-4" }: { d: string; className?: string }) {

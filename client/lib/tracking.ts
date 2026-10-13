@@ -1,16 +1,6 @@
-export type LiveDriver = {
-  id: string; name: string; phone: string; plateNumber: string; vehicleType: string | null;
-  vehicleBrand: string | null;
-  routeFrom: string; routeTo: string; capacityKg: number; status: "active" | "inactive";
-  routeFromLat: number | null; routeFromLng: number | null;
-  routeToLat: number | null; routeToLng: number | null;
-  sharing: boolean; sharingSince: string | null;
-  lat: number | null; lng: number | null; accuracy: number | null;
-  speed: number | null; heading: number | null; recordedAt: string | null; ageSec: number | null;
-};
-export type TrailPoint = { lat: number; lng: number; speed: number | null; recordedAt: string };
-
-export type TrackState = "moving" | "idle" | "stale" | "offline";
+import type { LiveDriver, TrackState } from "@/types/tracking";
+// Re-exported so files that haven't been migrated yet (e.g. TrackingMap) keep compiling.
+export type { LiveDriver, TrackState, TrailPoint } from "@/types/tracking";
 
 export const POLL_MS = 5_000;
 export const STALE_AFTER_SEC = 60;   // sharing, but no fix for this long → "signal lost"
@@ -48,3 +38,10 @@ export function formatAgo(sec: number | null): string {
 
 export const kmh = (mps: number | null) => (mps == null ? 0 : Math.round(mps * 3.6));
 export const compass = (deg: number) => ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(deg / 45) % 8];
+
+export function statusText(d: LiveDriver, age: number | null, state: TrackState) {
+  if (state === "moving") return `${kmh(d.speed)} km/h · ${formatAgo(age)}`;
+  if (state === "idle") return `Stopped · updated ${formatAgo(age)}`;
+  if (state === "stale") return d.lat == null ? "Waiting for first GPS fix" : `No signal for ${formatAgo(age).replace(" ago", "")}`;
+  return d.recordedAt ? `Last seen ${formatAgo(age)}` : "Has not shared location yet";
+}

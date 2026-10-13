@@ -1,15 +1,4 @@
-export type Session = {
-  id: string; driverId: string; driverName: string; phone: string; email: string;
-  plateNumber: string; vehicleBrand: string | null; vehicleType: string | null; routeFrom: string; routeTo: string;
-  startedAt: string; endedAt: string | null; endReason: "driver" | "replaced" | "timeout" | null;
-  deviceName: string | null; deviceBrand: string | null; deviceModel: string | null;
-  osName: string | null; osVersion: string | null; appVersion: string | null; ipAddress: string | null;
-  durationSec: number; points: number; distanceKm: number; maxSpeed: number | null; lastSeenAt: string | null;
-};
-export type Summary = { total: number; live: number; drivers: number; avgSec: number };
-export type SessionsResponse = { sessions: Session[]; total: number; summary: Summary };
-
-export type SessionState = "live" | "nosignal" | "completed" | "timeout" | "restarted";
+import type { Session, SessionState } from "@/types/session";
 
 export const SESSION_META: Record<SessionState, { label: string; badge: string; dot: string }> = {
   live:      { label: "Live",        badge: "bg-green-50 text-green-700",  dot: "bg-green-500" },
